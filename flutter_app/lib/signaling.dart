@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:url_launcher/url_launcher.dart';
 
 typedef void StreamStateCallback(MediaStream stream);
 
@@ -25,7 +28,9 @@ class Signaling {
   bool _remoteDescriptionSet = false;
   MediaStream? remoteStream;
   Function(MediaStream stream)? onAddRemoteStream;
+
   VoidCallback? onCallEnded;
+  MediaRecorder? _mediaRecorder;
 
   // Replace with your machine's IP address if running on a real device
   // For Android Emulator use 10.0.2.2
@@ -192,6 +197,7 @@ class Signaling {
   }
 
   void hangUp(RTCVideoRenderer localVideo, RTCVideoRenderer remoteVideo) {
+    stopRecording();
     if (localStream != null) {
       localStream!.dispose();
     }
@@ -215,6 +221,7 @@ class Signaling {
     roomId = null;
   }
   void onRemoteHangUp(RTCVideoRenderer remoteVideo) {
+    stopRecording();
     if (remoteStream != null) {
       remoteStream!.dispose();
     }
@@ -233,6 +240,52 @@ class Signaling {
     }
   }
 
+  Future<void> startRecording(MediaStream stream) async {
+    if (_mediaRecorder != null) return;
+    
+    print("Starting recording...");
+    
+    _mediaRecorder = MediaRecorder();
+    
+    if (kIsWeb) {
+      // Web uses startWeb()
+      _mediaRecorder!.startWeb(stream);
+      print("Recording started on web");
+    } else {
+      // Mobile/Desktop uses start()
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final videoDir = Directory('${appDocDir.path}/videos');
+      if (!await videoDir.exists()) {
+        await videoDir.create(recursive: true);
+      }
+      String filePath = '${videoDir.path}/video_call_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      
+      await _mediaRecorder!.start(
+        filePath, 
+        videoTrack: stream.getVideoTracks().isNotEmpty ? stream.getVideoTracks().first : null,
+      );
+      print("Recording started at $filePath");
+    }
+  }
+
+  Future<void> stopRecording() async {
+    if (_mediaRecorder != null) {
+      print("Stopping recording...");
+      final result = await _mediaRecorder!.stop();
+      print("Recording stopped: $result");
+      
+      if (kIsWeb && result != null) {
+        // On web, result might be a blob URL
+        // We can try to open it to trigger download/view
+        if (result is String) {
+          await launchUrl(Uri.parse(result));
+        }
+      }
+      
+      _mediaRecorder = null;
+    }
+  }
+
   Future<void> _initializePeerConnection(RTCVideoRenderer remoteVideo) async {
     peerConnection = await createPeerConnection(configuration);
     registerPeerConnectionListeners();
@@ -245,6 +298,8 @@ class Signaling {
       if (event.streams.isNotEmpty) {
         remoteVideo.srcObject = event.streams[0];
         onAddRemoteStream?.call(event.streams[0]);
+        // Start recording when we receive the remote stream (2 people in room)
+        startRecording(event.streams[0]);
       }
     };
   }
