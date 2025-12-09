@@ -10,14 +10,7 @@ typedef void StreamStateCallback(MediaStream stream);
 
 class Signaling {
   Map<String, dynamic> configuration = {
-    'iceServers': [
-      {
-        'urls': [
-          'stun:stun1.l.google.com:19302',
-          'stun:stun2.l.google.com:19302'
-        ]
-      }
-    ]
+    'iceServers': []
   };
 
   IO.Socket? socket;
@@ -54,6 +47,11 @@ class Signaling {
 
     socket!.onConnect((_) {
       print('Connected to signaling server');
+    });
+
+    socket!.on('ice_servers', (data) {
+      print('Received ICE servers: $data');
+      configuration['iceServers'] = data;
     });
 
     socket!.on('room_created', (data) async {

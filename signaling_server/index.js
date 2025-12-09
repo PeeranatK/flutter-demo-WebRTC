@@ -12,6 +12,16 @@ const io = new Server(httpServer, {
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
+  // Send ICE servers configuration to the client
+  socket.emit("ice_servers", [
+    {
+      urls: [
+        "stun:stun1.l.google.com:19302",
+        "stun:stun2.l.google.com:19302",
+      ],
+    },
+  ]);
+
   socket.on("join", (roomId) => {
     const roomClients = io.sockets.adapter.rooms.get(roomId) || { size: 0 };
     const numberOfClients = roomClients.size;
