@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:url_launcher/url_launcher.dart';
@@ -21,6 +22,7 @@ class Signaling {
   bool _remoteDescriptionSet = false;
   MediaStream? remoteStream;
   Function(MediaStream stream)? onAddRemoteStream;
+  Function(String location)? onLocationReceived;
 
   VoidCallback? onCallEnded;
   MediaRecorder? _mediaRecorder;
@@ -82,6 +84,10 @@ class Signaling {
 
     socket!.on('webrtc_answer', (data) async {
       print('Received answer');
+      if (data['location'] != null) {
+        print('Received location: ${data['location']}');
+        onLocationReceived?.call(data['location']);
+      }
       var sdp = RTCSessionDescription(data['sdp'], data['type']);
       await peerConnection?.setRemoteDescription(sdp);
       _remoteDescriptionSet = true;
@@ -158,11 +164,45 @@ class Signaling {
 
     await peerConnection!.setLocalDescription(description);
 
+    String? locationString;
+    try {
+      Position position = await _determinePosition();
+      locationString = 'Lat: ${position.latitude}, Lng: ${position.longitude}';
+    } catch (e) {
+      print('Error getting location: $e');
+    }
+
     socket!.emit('webrtc_answer', {
       'type': 'answer',
       'sdp': description.sdp,
       'roomId': roomId,
+      'location': locationString,
     });
+  }
+
+  Future<Position> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return Future.error('Location services are disabled.');
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Location permissions are denied');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error(
+          'Location permissions are permanently denied, we cannot request permissions.');
+    }
+
+    return await Geolocator.getCurrentPosition();
   }
 
   void registerPeerConnectionListeners() {

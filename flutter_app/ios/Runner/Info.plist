@@ -6,6 +6,8 @@
 	<string>We need camera access for video calls</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>We need microphone access for video calls</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>We need location access to share your location with the caller</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

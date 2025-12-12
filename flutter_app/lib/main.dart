@@ -31,6 +31,7 @@ class _MyHomePageState extends State<MyHomePage> {
   RTCVideoRenderer _localRenderer = RTCVideoRenderer();
   RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
   String? roomId;
+  String? remoteLocation;
   TextEditingController textEditingController = TextEditingController(text: '');
 
   @override
@@ -43,9 +44,21 @@ class _MyHomePageState extends State<MyHomePage> {
       setState(() {});
     });
 
+    signaling.onLocationReceived = (location) {
+      if (mounted) {
+        setState(() {
+          remoteLocation = location;
+        });
+      }
+    };
+
     signaling.onCallEnded = () {
       signaling.onRemoteHangUp(_remoteRenderer);
-      setState(() {});
+      if (mounted) {
+        setState(() {
+          remoteLocation = null;
+        });
+      }
     };
 
     signaling.openUserMedia(_localRenderer, _remoteRenderer);
@@ -114,7 +127,11 @@ class _MyHomePageState extends State<MyHomePage> {
                 onPressed: () {
                   signaling.hangUp(_localRenderer, _remoteRenderer);
                   textEditingController.clear();
-                  setState(() {});
+                  if (mounted) {
+                    setState(() {
+                      remoteLocation = null;
+                    });
+                  }
                 },
                 child: Text("Hangup"),
               )
@@ -124,15 +141,29 @@ class _MyHomePageState extends State<MyHomePage> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Column(
                 children: [
-                  Expanded(child: RTCVideoView(_localRenderer, mirror: true)),
                   Expanded(
-                    child: _remoteRenderer.srcObject != null
-                        ? RTCVideoView(_remoteRenderer)
-                        : Container(color: Colors.white),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(child: RTCVideoView(_localRenderer, mirror: true)),
+                        Expanded(
+                          child: _remoteRenderer.srcObject != null
+                              ? RTCVideoView(_remoteRenderer)
+                              : Container(color: Colors.white),
+                        ),
+                      ],
+                    ),
                   ),
+                  if (remoteLocation != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        "Caller Location: $remoteLocation",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                 ],
               ),
             ),
