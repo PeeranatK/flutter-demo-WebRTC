@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "react-native-fs": "^2.20.0",
+    "react-native-geolocation-service": "^5.3.1",
+    "react-native-webrtc": "^124.0.7",
+    "socket.io-client": "^4.8.1"
+  }
+}

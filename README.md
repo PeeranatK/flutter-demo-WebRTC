@@ -56,3 +56,4 @@ flutter run -d <device_id>
 
 ## Passed Test
 1. Web to Web
+2. Safari + Chrome (Safari + Safari cam not work in react verion) 
